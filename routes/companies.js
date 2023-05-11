@@ -5,7 +5,6 @@
 const express = require("express");
 const db = require("../db");
 const { BadRequestError, NotFoundError } = require("../expressError");
-const { findCompany } = require("../middleware");
 const router = express.Router();
 
 
@@ -13,34 +12,34 @@ const router = express.Router();
  * returns JSON like: {companies: [{code, name}, ...]}
 */
 router.get("/", async function (req, res) {
-  const results = await db.query(
+  const result = await db.query(
     `SELECT code, name
       FROM companies`
   );
 
-  return res.json({companies:results.rows})
+  return res.json({companies:result.rows})
 })
 
 /** GET specific company by code
  * returns JSON like: {company: {code, name, description}}
 */
 router.get("/:code", async function (req, res) {
-  const results = await db.query(
+  const result = await db.query(
     `SELECT code, name, description
       FROM companies
         WHERE code = $1`,[req.params.code]
   );
 
-  if (results.rows.length === 0) {
+  const company = result.rows[0];
+
+  if (!company) {
     throw new NotFoundError("Company code not found");
   }
-
-  const company = results.rows[0];
 
   return res.json({company});
 })
 
-/** add a company
+/** Add a company
  * Needs to be given JSON like: {code, name, description}
  * returns JSON like: {code, name, description}
 */
@@ -55,29 +54,54 @@ router.post("/", async function (req, res) {
     [code, name, description]
   );
   const company = result.rows[0];
-  
+
   return res.status(201).json({ company });
 })
 
 
+/** Edit existing company.
+ * Needs to be given JSON like: {name, description}
+ * Returns JSON with update company object like:
+ * {company: {code, name, description}}
+ */
+router.put("/:code", async function (req, res) {
+  if (!req.body) throw new BadRequestError("Invalid parameters");
 
-// /** check if company is in database, if so continue
-//  *  else 404 error
-//  */
-// async function findCompany(companyCode) {
-//   const results = await db.query(
-//     `SELECT code, name, description
-//       FROM companies
-//         WHERE code = $1`, [companyCode]
-//   );
-//   const company = results.rows[0];
-//   console.log("company=", company);
-//   if (company === undefined) {
-//     throw new NotFoundError("Company code not found")
-//   } else {
-//     return company;
-//   }
-// }
+  const { name, description } = req.body;
 
+  const result = await db.query(
+    `UPDATE companies
+           SET name=$1,
+               description=$2
+           WHERE code = $3
+           RETURNING code, name, description`,
+    [name, description, req.params.code],
+  );
+  const company = result.rows[0];
+
+  if (!company) {
+    throw new NotFoundError("Company code not found");
+  }
+
+  return res.json({ company });
+})
+
+/** Deletes company.
+ * Should return 404 if company cannot be found.
+ * Returns JSON like: {status: "deleted"}
+ * */
+router.delete("/:code", async function (req, res) {
+  const result = await db.query(
+    `DELETE FROM companies WHERE code = $1
+    RETURNING code`,
+    [req.params.code]
+  );
+
+  if (result.rows.length === 0) {
+    throw new NotFoundError("Company code not found");
+  }
+
+  return res.json({ status: "deleted" });
+})
 
 module.exports = router;

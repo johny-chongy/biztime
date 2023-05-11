@@ -11,6 +11,10 @@ app.use(express.json());
 const companiesRoutes = require("./routes/companies");
 app.use("/companies", companiesRoutes);
 
+/** Import and register "/invoices" routes */
+const invoicesRoutes = require("./routes/invoices");
+app.use("/invoices", invoicesRoutes);
+
 
 /** 404 handler: matches unmatched routes; raises NotFoundError. */
 app.use(function (req, res, next) {
