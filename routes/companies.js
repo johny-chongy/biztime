@@ -20,25 +20,6 @@ router.get("/", async function (req, res) {
   return res.json({companies:result.rows})
 })
 
-/** GET specific company by code
- * returns JSON like: {company: {code, name, description}}
-*/
-router.get("/:code", async function (req, res) {
-  const result = await db.query(
-    `SELECT code, name, description
-      FROM companies
-        WHERE code = $1`,[req.params.code]
-  );
-
-  const company = result.rows[0];
-
-  if (!company) {
-    throw new NotFoundError("Company code not found");
-  }
-
-  return res.json({company});
-})
-
 /** Add a company
  * Needs to be given JSON like: {code, name, description}
  * returns JSON like: {code, name, description}
@@ -57,7 +38,6 @@ router.post("/", async function (req, res) {
 
   return res.status(201).json({ company });
 })
-
 
 /** Edit existing company.
  * Needs to be given JSON like: {name, description}
@@ -104,4 +84,34 @@ router.delete("/:code", async function (req, res) {
   return res.json({ status: "deleted" });
 })
 
+/** GET object of company and its invoices
+ *  return JSON like: {company: {code, name, description,
+ *                              invoices: [id, ...]}}
+ */
+router.get("/:code", async function (req, res) {
+  const companyResult = await db.query(
+    `SELECT code, name, description
+      FROM companies
+        WHERE code = $1`,[req.params.code]
+  );
+
+  const company = companyResult.rows[0];
+
+  if (!company) {
+    throw new NotFoundError("Company code not found");
+  }
+
+  const invoiceResult = await db.query(
+    `SELECT id
+      FROM invoices
+        WHERE comp_code = $1`, [company.code]
+  );
+
+  const invoiceIds = invoiceResult.rows.map(invoice => invoice.id);
+  company.invoices = invoiceIds;
+
+  return res.json({company});
+})
+
+//TODO: CRUD order routes
 module.exports = router;
